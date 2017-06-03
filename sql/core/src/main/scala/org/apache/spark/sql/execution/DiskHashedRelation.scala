@@ -147,7 +147,11 @@ private[sql] class DiskPartition (
 
       override def next() = {
         // IMPLEMENTED
-        currentIterator.next(); // This will throw an exception if the next doesn't exist.
+        if(currentIterator.hasNext()){
+          currentIterator.next()
+        } else {
+          null
+        }
       }
 
       override def hasNext() = {
