@@ -192,7 +192,7 @@ private[sql] class DiskPartition (
     /* IMPLEMENT THIS METHOD */
     spillPartitionToDisk()
     data.clear()
-    inStream.close()
+    //inStream.close()
     outStream.close()
     inputClosed = true
   }
