@@ -147,7 +147,7 @@ private[sql] class DiskPartition (
 
       override def next() = {
         // IMPLEMENTED
-        if(currentIterator.hasNext()){
+        if(currentIterator.hasNext){
           currentIterator.next()
         } else {
           null
