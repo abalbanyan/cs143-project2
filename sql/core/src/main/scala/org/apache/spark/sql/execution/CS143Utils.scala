@@ -227,15 +227,30 @@ object CachingIteratorGenerator {
       val cacheKeyProjection = CS143Utils.getNewProjection(udf.children, inputSchema)
       val preUdfProjection = CS143Utils.getNewProjection(preUdfExpressions, inputSchema)
       val postUdfProjection = CS143Utils.getNewProjection(postUdfExpressions, inputSchema)
-      val cache: JavaHashMap[Row, Row] = new JavaHashMap[Row, Row]()
+      val cache: JavaHashMap[Row, Row] = new JavaHashMap[Row, Row]() // Maps x to UDF(x).
 
       def hasNext() = {
-        /* IMPLEMENT THIS METHOD */
-        false
+        input.hasNext
       }
 
       def next() = {
         /* IMPLEMENT THIS METHOD */
+        if(!input.hasNext){
+          null
+        }
+
+        val row = input.next()
+        val udf_proj = udfProject(row)
+        val pre_proj = preUdfProjection(row)
+        val post_proj = postUdfProjection(row)
+        val key_proj = cacheKeyProjection(row)
+
+        if(cache.containsKey(key_proj)){
+          pre_proj ++ cache.get(key_proj) ++ post_proj
+        } else {
+          pre_proj ++ cache.put(key_proj, Row(udf.eval(udf_proj))) ++ post_proj
+        }
+
         null
       }
     }
