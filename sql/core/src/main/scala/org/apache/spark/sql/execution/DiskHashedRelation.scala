@@ -242,8 +242,12 @@ private[sql] object DiskHashedRelation {
 
     // Iterate through each row, and add it to the partitions they correspond to in the hash table.
     while(input.hasNext){
-      var row = input.next()
+      val row = input.next()
       partitions(keyGenerator(row).hashCode() % size).insert(row)
+    }
+
+    for(partition <- partitions){
+      partition.closeInput()
     }
 
     new GeneralDiskHashedRelation(partitions)
