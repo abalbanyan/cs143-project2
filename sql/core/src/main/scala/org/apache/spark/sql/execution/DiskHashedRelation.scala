@@ -227,6 +227,7 @@ private[sql] object DiskHashedRelation {
     * @return the constructed [[DiskHashedRelation]]
     */
   // IMPLEMENTED
+  // Apply is syntactic sugar - it is a constructor that can return a value different from the object itself.
   def apply (
               input: Iterator[Row],
               keyGenerator: Projection,
