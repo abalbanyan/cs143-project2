@@ -231,6 +231,7 @@ private[sql] object DiskHashedRelation {
     * @return the constructed [[DiskHashedRelation]]
     */
   // IMPLEMENTED
+  // Apply is syntactic sugar - it is a constructor that can return a value different from the object itself.
   def apply (
               input: Iterator[Row],
               keyGenerator: Projection,
@@ -245,11 +246,12 @@ private[sql] object DiskHashedRelation {
 
     // Iterate through each row, and add it to the partitions they correspond to in the hash table.
     while(input.hasNext){
-      var row = input.next()
+      val row = input.next()
       partitions(keyGenerator(row).hashCode() % size).insert(row)
     }
 
-    for (partition <- partitions) {
+
+    for(partition <- partitions){
       partition.closeInput()
     }
 
