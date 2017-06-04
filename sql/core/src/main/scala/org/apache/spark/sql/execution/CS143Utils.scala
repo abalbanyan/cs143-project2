@@ -128,8 +128,15 @@ object CS143Utils {
     * @return
     */
   def getUdfFromExpressions(expressions: Seq[Expression]): ScalaUdf = {
-    /* IMPLEMENT THIS METHOD */
-    null
+    // IMPLEMENTED
+    var lastUDF : ScalaUdf = null
+    for(expression <- expressions){
+      lastUDF = expression match {
+        case u: ScalaUdf => u
+        case _ => lastUDF
+      }
+    }
+    lastUDF
   }
 
   /**
