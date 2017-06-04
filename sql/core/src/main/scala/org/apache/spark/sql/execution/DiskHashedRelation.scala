@@ -102,7 +102,9 @@ private[sql] class DiskPartition (
       spillPartitionToDisk()
       data.clear()
     }
-
+    else {
+      writtenToDisk = false
+    }
     data.add(row)
   }
 
@@ -190,7 +192,9 @@ private[sql] class DiskPartition (
     */
   def closeInput() = {
     // IMPLEMENTED
-    spillPartitionToDisk()
+    if (writtenToDisk == false && data.isEmpty() == false) {
+      spillPartitionToDisk()
+    }
     data.clear()
     // inStream.close()
     outStream.close()
@@ -243,6 +247,10 @@ private[sql] object DiskHashedRelation {
     while(input.hasNext){
       var row = input.next()
       partitions(keyGenerator(row).hashCode() % size).insert(row)
+    }
+
+    for (partition <- partitions) {
+      partition.closeInput()
     }
 
     new GeneralDiskHashedRelation(partitions)
