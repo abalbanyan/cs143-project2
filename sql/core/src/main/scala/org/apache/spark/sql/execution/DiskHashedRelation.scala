@@ -170,8 +170,8 @@ private[sql] class DiskPartition (
         if(chunkSizeIterator.hasNext){
           // First retrieve an Array[Byte] using getNextChunkBytes, then store the bytes into a Array[Row] using getListFromBytes.
           // Then update the currentIterator using this new Array[Row].
-          currentIterator = getListFromBytes(
-            getNextChunkBytes(inStream, chunkSizeIterator.next(), byteArray)
+          currentIterator = CS143Utils.getListFromBytes(
+            CS143Utils.getNextChunkBytes(inStream, chunkSizeIterator.next(), byteArray)
           ).iterator.asScala
           true
         } else {
@@ -189,10 +189,10 @@ private[sql] class DiskPartition (
     * also be closed.
     */
   def closeInput() = {
-    /* IMPLEMENT THIS METHOD */
+    // IMPLEMENTED
     spillPartitionToDisk()
     data.clear()
-    //inStream.close()
+    // inStream.close()
     outStream.close()
     inputClosed = true
   }
@@ -207,6 +207,7 @@ private[sql] class DiskPartition (
   }
 }
 
+// Object factory that constructs GeneralDiskHashedRelations.
 private[sql] object DiskHashedRelation {
 
   /**
@@ -214,7 +215,7 @@ private[sql] object DiskHashedRelation {
     * and constructors a [[DiskHashedRelation]].
     *
     * This executes the first phase of external hashing -- using a course-grained hash function
-    * to partition the tuples to disk.
+    * to partition the tuples to disk. An input is streamed into multiple partition relations on disk.
     *
     * The block size is approximately set to 64k because that is a good estimate of the average
     * buffer page.
@@ -225,12 +226,25 @@ private[sql] object DiskHashedRelation {
     * @param blockSize the threshold at which each partition will spill
     * @return the constructed [[DiskHashedRelation]]
     */
+  // IMPLEMENTED
   def apply (
               input: Iterator[Row],
               keyGenerator: Projection,
               size: Int = 64,
               blockSize: Int = 64000) = {
-    /* IMPLEMENT THIS METHOD */
-    null
+
+    // Allocate a hash table and initialize with empty DiskPartitions.
+    val partitions = new Array[DiskPartition](size)
+    for(i <- 0 until size){
+      partitions(i) = new DiskPartition("disk_partition_" + i.toString, blockSize)
+    }
+
+    // Iterate through each row, and add it to the partitions they correspond to in the hash table.
+    while(input.hasNext){
+      var row = input.next()
+      partitions(keyGenerator(row).hashCode() % size).insert(row)
+    }
+
+    new GeneralDiskHashedRelation(partitions)
   }
 }
