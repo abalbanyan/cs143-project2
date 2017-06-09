@@ -245,13 +245,10 @@ object CachingIteratorGenerator {
         val post_proj = postUdfProjection(row)
         val key_proj = cacheKeyProjection(row)
 
-        if(cache.containsKey(key_proj)){
-          pre_proj ++ cache.get(key_proj) ++ post_proj
-        } else {
-          pre_proj ++ cache.put(key_proj, Row(udf.eval(udf_proj))) ++ post_proj
+        if (!cache.containsKey(key_proj)) {
+          cache.put(key_proj, Row(udf.eval(udf_proj)))
         }
-
-        null
+        Row.fromSeq(pre_proj ++ cache.get(key_proj) ++ post_proj)
       }
     }
   }
