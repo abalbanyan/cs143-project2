@@ -234,21 +234,21 @@ object CachingIteratorGenerator {
       }
 
       def next() = {
-        /* IMPLEMENT THIS METHOD */
-        if(!input.hasNext){
+        // IMPLEMENTED
+        if(input.hasNext){
+          val row = input.next()
+          val udf_proj = udfProject(row)
+          val pre_proj = preUdfProjection(row)
+          val post_proj = postUdfProjection(row)
+          val key_proj = cacheKeyProjection(row)
+
+          if (!cache.containsKey(key_proj)) {
+            cache.put(key_proj, Row(udf.eval(udf_proj)))
+          }
+          Row.fromSeq(pre_proj ++ cache.get(key_proj) ++ post_proj)
+        } else {
           null
         }
-
-        val row = input.next()
-        val udf_proj = udfProject(row)
-        val pre_proj = preUdfProjection(row)
-        val post_proj = postUdfProjection(row)
-        val key_proj = cacheKeyProjection(row)
-
-        if (!cache.containsKey(key_proj)) {
-          cache.put(key_proj, Row(udf.eval(udf_proj)))
-        }
-        Row.fromSeq(pre_proj ++ cache.get(key_proj) ++ post_proj)
       }
     }
   }
