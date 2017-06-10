@@ -267,7 +267,6 @@ object AggregateIteratorGenerator {
 
     new Iterator[Row] {
       val postAggregateProjection = CS143Utils.getNewProjection(resultExpressions, inputSchema) // resultProjection
-
       def hasNext() = {
         // IMPLEMENTED?
         input.hasNext
@@ -283,7 +282,6 @@ object AggregateIteratorGenerator {
         val aggregateResults = new GenericMutableRow(1)
         aggregateResults(0) = currentInst.eval(EmptyRow)
         postAggregateProjection(new JoinedRow4(aggregateResults, currentGroup))
-
       }
     }
   }

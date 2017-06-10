@@ -55,15 +55,6 @@ case class SpillableAggregate(
 
   /** Physical aggregator generated from a logical expression.  */
   private[this] val aggregator: ComputedAggregate =
-//  {
-//    aggregateExpressions(0) match {
-//      case a: AggregateExpression =>
-//        ComputedAggregate(
-//          a,
-//          BindReferences.bindReference(a, child.output),
-//          AttributeReference(s"aggResult:$a", a.dataType, a.nullable)()
-//        )
-//    }
   {
     val x = aggregateExpressions.flatMap { agg =>
       agg.collect {
@@ -74,6 +65,7 @@ case class SpillableAggregate(
             AttributeReference(s"aggResult:$a", a.dataType, a.nullable)())
       }
     }.toArray
+
     x(0)
   }
 
@@ -100,7 +92,7 @@ case class SpillableAggregate(
     * Substituted version of aggregateExpressions expressions which are used to compute final
     * output rows given a group and the result of all aggregate computations.
     */
-  private[this] val resultExpression : Seq[Expression] = aggregateExpressions.map(agg => agg.transform {
+  private[this] val resultExpression = aggregateExpressions.map(agg => agg.transform {
     case e: Expression if resultMap.contains(e) => resultMap(e)
   }
   )
@@ -152,11 +144,11 @@ case class SpillableAggregate(
       var aggregateResult: Iterator[Row] = aggregate() // The hash table iterator.
 
       def hasNext() = {
-        aggregateResult.hasNext  // ?
+         aggregateResult.hasNext  // ?
       }
 
       def next() = {
-        aggregateResult.next()   // ?
+        aggregateResult.next()
       }
 
       /**
@@ -181,11 +173,10 @@ case class SpillableAggregate(
             instance.update(currentRow)
           }
 
-//          val resultProjection = new InterpretedProjection(resultExpression, Seq(aggregatorSchema))
-//          val aggregateResults = new GenericMutableRow(1)
-//          aggregateResults(0) = instance.eval(EmptyRow)
-//          Iterator(resultProjection(aggregateResults))
-
+          val resultProjection = new InterpretedProjection(resultExpression, Seq(aggregatorSchema))
+          val aggregateResults = new GenericMutableRow(1)
+          aggregateResults(0) = instance.eval(EmptyRow)
+          Iterator(resultProjection(aggregateResults))
         } else {
           while (data.hasNext) {
             val currentRow = data.next()
@@ -194,13 +185,13 @@ case class SpillableAggregate(
             if (currentInstance == null) {
               currentInstance = newAggregatorInstance()
               currentAggregationTable.update(currentGroup.copy(), currentInstance)
-              currentInstance.update(currentRow)
             }
+            currentInstance.update(currentRow)
           }
+          val aggregate_iterator_gen = AggregateIteratorGenerator(resultExpression, Seq(aggregatorSchema) ++ namedGroups.map(_._2)) // idk what the input should be
+          val aggregate_iterator = aggregate_iterator_gen(currentAggregationTable.iterator)
+          aggregate_iterator
         }
-        val aggregate_iterator_gen = AggregateIteratorGenerator(resultExpression, Seq(aggregatorSchema)) // idk what the input should be
-        val aggregate_iterator = aggregate_iterator_gen(currentAggregationTable.iterator)
-        aggregate_iterator
 
       }
 
