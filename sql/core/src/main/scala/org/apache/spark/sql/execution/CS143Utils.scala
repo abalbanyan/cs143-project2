@@ -266,16 +266,24 @@ object AggregateIteratorGenerator {
             inputSchema: Seq[Attribute]): (Iterator[(Row, AggregateFunction)] => Iterator[Row]) = input => {
 
     new Iterator[Row] {
-      val postAggregateProjection = CS143Utils.getNewProjection(resultExpressions, inputSchema)
+      val postAggregateProjection = CS143Utils.getNewProjection(resultExpressions, inputSchema) // resultProjection
 
       def hasNext() = {
-        /* IMPLEMENT THIS METHOD */
-        false
+        // IMPLEMENTED?
+        input.hasNext
       }
 
       def next() = {
-        /* IMPLEMENT THIS METHOD */
-        null
+        // IMPLEMENTED?
+        val currentEntry = input.next()
+
+        val currentGroup : Row = currentEntry._1
+        val currentInst : AggregateFunction = currentEntry._2
+
+        val aggregateResults = new GenericMutableRow(1)
+        aggregateResults(0) = currentInst.eval(EmptyRow)
+        postAggregateProjection(new JoinedRow4(aggregateResults, currentGroup))
+
       }
     }
   }
