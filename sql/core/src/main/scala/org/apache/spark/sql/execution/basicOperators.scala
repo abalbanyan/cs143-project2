@@ -112,7 +112,7 @@ case class PartitionProject(projectList: Seq[Expression], child: SparkPlan) exte
 
     new Iterator[Row] {
       def hasNext() = {
-        if(partition_iterator != null && partition_iterator.hasNext) true else fetchNextPartition()
+        if(row_iterator != null && row_iterator.hasNext) true else fetchNextPartition()
       }
 
       def next() = {
