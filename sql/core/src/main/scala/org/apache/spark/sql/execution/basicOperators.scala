@@ -99,16 +99,24 @@ case class PartitionProject(projectList: Seq[Expression], child: SparkPlan) exte
     val keyGenerator = CS143Utils.getNewProjection(projectList, child.output)
 
     /* IMPLEMENT THIS METHOD */
+    /* DiskHashedRelation: Given an input iterator and keyGen, partitions each row into a number of DiskPartitions.
+        The .getIterator() method returns an [Iterator[DiskPartition]]
+        The .getData() method, when called on the above iterator, returns an [Iterator[Row]]
+        gen_cache_iterator converts a normal [Iterator[Row]] (which in this case will be obtained from a .getData() call) to an [Iterator[Row]] that can do in-memory memoization.
+        We need to use these three things.
+        (Note that in Scala, the constructor is just the class body.)
+    */
+    val partition_iterator : Iterator[DiskPartition]      = DiskHashedRelation(input, keyGenerator).getIterator() // Iterates across the array of partitions.
+    val gen_cache_iterator : Iterator[Row]=>Iterator[Row] = CS143Utils.generateCachingIterator(projectList, child.output) // Generates a row_iterator
+    var row_iterator       : Iterator[Row]                = gen_cache_iterator(partition_iterator.next().getData())   // The "main" iterator across rows. Performs memoization and evaluates UDFs.
 
     new Iterator[Row] {
       def hasNext() = {
-        /* IMPLEMENT THIS METHOD */
-        false
+        if(partition_iterator != null && partition_iterator.hasNext) true else fetchNextPartition()
       }
 
       def next() = {
-        /* IMPLEMENT THIS METHOD */
-        null
+        if(row_iterator.hasNext) row_iterator.next() else null
       }
 
       /**
@@ -118,8 +126,12 @@ case class PartitionProject(projectList: Seq[Expression], child: SparkPlan) exte
         * @return
         */
       private def fetchNextPartition(): Boolean  = {
-        /* IMPLEMENT THIS METHOD */
-        false
+        if(partition_iterator.hasNext){
+          row_iterator = gen_cache_iterator(partition_iterator.next().getData()) // Move to next partition.
+          row_iterator.hasNext
+        } else {
+          false
+        }
       }
     }
   }
