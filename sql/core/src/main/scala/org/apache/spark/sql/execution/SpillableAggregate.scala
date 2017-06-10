@@ -54,13 +54,26 @@ case class SpillableAggregate(
                                 resultAttribute: AttributeReference)
 
   /** Physical aggregator generated from a logical expression.  */
-  private[this] val aggregator: ComputedAggregate = null //IMPLEMENT ME
+  private[this] val aggregator: ComputedAggregate =
+  {
+    val x = aggregateExpressions.flatMap { agg =>
+      agg.collect {
+        case a: AggregateExpression =>
+          ComputedAggregate(
+            a,
+            BindReferences.bindReference(a, child.output),
+            AttributeReference(s"aggResult:$a", a.dataType, a.nullable)())
+      }
+    }.toArray
+
+    x(0)
+  }
 
   /** Schema of the aggregate.  */
-  private[this] val aggregatorSchema: AttributeReference = null //IMPLEMENT ME
+  private[this] val aggregatorSchema: AttributeReference = aggregator.resultAttribute // Implemented?
 
   /** Creates a new aggregator instance.  */
-  private[this] def newAggregatorInstance(): AggregateFunction = null //IMPLEMENT ME
+  private[this] def newAggregatorInstance(): AggregateFunction = aggregator.aggregate.newInstance() // Implemented?
 
   /** Named attributes used to substitute grouping attributes in the final result. */
   private[this] val namedGroups = groupingExpressions.map {
@@ -102,7 +115,25 @@ case class SpillableAggregate(
     var currentAggregationTable = new SizeTrackingAppendOnlyMap[Row, AggregateFunction]
     var data = input
 
-    def initSpills(): DiskHashedRelation  = {
+    // Iterate through all the rows via input and add them to currentAggregationTable which maps each row to an AggregateFunction.
+    // We put each row into the hash table until it has the potential to spill.
+    // From there, spill if the group that the newly added row belongs to does not already exist in the hash table.
+
+    // Within initSpills(), you should create a new DiskHashedRelation comprising of empty partitions, that are filled up later by
+    // spillRecord() from within aggregate().
+
+    // The aggregate functions themselves will be evaluated in the AggregateIteratorGenerator.
+    // Aggregate values:  The input data.
+    // Aggregate results: Result obtained after computing the corresponding aggregate function over the input data (aggregate values).
+    // It needs to return two rows: input row + aggregate result (input row is grouping).
+
+    // Logic of generateIterator:
+    // 1) Drain the input iterator into the aggregation table
+    // 2) generate an aggregate iterator using the helper function AggregateIteratorGenerator properly formatting the aggregate result
+    // 3) use the iterator inside generateIterator as an external inteface to access and drive the aggregate iterator.
+
+    def initSpills(): Array[DiskPartition]  = {
+
       /* IMPLEMENT THIS METHOD */
       null
     }
@@ -110,16 +141,14 @@ case class SpillableAggregate(
     val spills = initSpills()
 
     new Iterator[Row] {
-      var aggregateResult: Iterator[Row] = aggregate()
+      var aggregateResult: Iterator[Row] = aggregate() // The hash table iterator.
 
       def hasNext() = {
-        /* IMPLEMENT THIS METHOD */
-        false
+         aggregateResult.hasNext  // ?
       }
 
       def next() = {
-        /* IMPLEMENT THIS METHOD */
-        null
+        aggregateResult.next()
       }
 
       /**
@@ -129,7 +158,41 @@ case class SpillableAggregate(
         */
       private def aggregate(): Iterator[Row] = {
         /* IMPLEMENT THIS METHOD */
-        null
+        // Plan: iterate through all of data, and fill the hash table.
+        // This method will call AggregateIteratorGenerator.
+        // AggregateIteratorGeneral accepts: resultExpressions,inputSchema
+        // It will return a function that converts the currentAggregationTable Iterator[(Row,AggregateFunction)] to an Iterator[Row].
+        // We return the result of this function.
+
+        // Fill Hash Table?
+        if(groupingExpressions.isEmpty){
+          val instance = newAggregatorInstance()
+          var currentRow : Row = null
+          while(data.hasNext){
+            currentRow = data.next()
+            instance.update(currentRow)
+          }
+
+          val resultProjection = new InterpretedProjection(resultExpression, Seq(aggregatorSchema))
+          val aggregateResults = new GenericMutableRow(1)
+          aggregateResults(0) = instance.eval(EmptyRow)
+          Iterator(resultProjection(aggregateResults))
+        } else {
+          while (data.hasNext) {
+            val currentRow = data.next()
+            val currentGroup = groupingProjection(currentRow)
+            var currentInstance = currentAggregationTable(currentGroup)
+            if (currentInstance == null) {
+              currentInstance = newAggregatorInstance()
+              currentAggregationTable.update(currentGroup.copy(), currentInstance)
+            }
+            currentInstance.update(currentRow)
+          }
+          val aggregate_iterator_gen = AggregateIteratorGenerator(resultExpression, Seq(aggregatorSchema) ++ namedGroups.map(_._2)) // idk what the input should be
+          val aggregate_iterator = aggregate_iterator_gen(currentAggregationTable.iterator)
+          aggregate_iterator
+        }
+
       }
 
       /**
