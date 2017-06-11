@@ -132,10 +132,17 @@ case class SpillableAggregate(
     // 2) generate an aggregate iterator using the helper function AggregateIteratorGenerator properly formatting the aggregate result
     // 3) use the iterator inside generateIterator as an external inteface to access and drive the aggregate iterator.
 
-    def initSpills(): Array[DiskPartition]  = {
 
-      /* IMPLEMENT THIS METHOD */
-      null
+    // Within initSpills() you should create a new DiskHashedRelation comprising of empty partitions
+    // These are filled up later by spillRecord.
+    def initSpills(): Array[DiskPartition]  = {
+      // IMPLEMENTED?
+
+      val partitions = new Array[DiskPartition](numPartitions)
+      for(i <- 0 until numPartitions){
+        partitions(i) = new DiskPartition("spill_partition_" + i.toString, 0)
+      }
+      partitions
     }
 
     val spills = initSpills()
@@ -184,7 +191,16 @@ case class SpillableAggregate(
             var currentInstance = currentAggregationTable(currentGroup)
             if (currentInstance == null) {
               currentInstance = newAggregatorInstance()
-              currentAggregationTable.update(currentGroup.copy(), currentInstance)
+
+              // Task 6:
+              if(CS143Utils.maybeSpill(currentAggregationTable, memorySize)){
+                spillRecord(currentRow)
+              } else {
+                currentAggregationTable.update(currentGroup.copy(), currentInstance)
+              }
+              //
+
+
             }
             currentInstance.update(currentRow)
           }
@@ -202,6 +218,7 @@ case class SpillableAggregate(
         */
       private def spillRecord(row: Row)  = {
         /* IMPLEMENT THIS METHOD */
+        spills(groupingProjection(row).hashCode() % numPartitions).insert(row)   // Not sure what to project row with.
       }
 
       /**
