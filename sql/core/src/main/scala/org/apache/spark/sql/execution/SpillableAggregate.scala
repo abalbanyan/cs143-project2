@@ -151,11 +151,11 @@ case class SpillableAggregate(
       var aggregateResult: Iterator[Row] = aggregate() // The hash table iterator.
 
       def hasNext() = {
-         aggregateResult.hasNext  // ?
+         aggregateResult.hasNext || fetchSpill() // ?
       }
 
       def next() = {
-        aggregateResult.next()
+        if(aggregateResult.hasNext) aggregateResult.next() else null
       }
 
       /**
@@ -183,6 +183,10 @@ case class SpillableAggregate(
           val resultProjection = new InterpretedProjection(resultExpression, Seq(aggregatorSchema))
           val aggregateResults = new GenericMutableRow(1)
           aggregateResults(0) = instance.eval(EmptyRow)
+
+//          // Task 7:
+//          hashedSpills = Some {spills.iterator}
+
           Iterator(resultProjection(aggregateResults))
         } else {
           while (data.hasNext) {
@@ -206,6 +210,10 @@ case class SpillableAggregate(
           }
           val aggregate_iterator_gen = AggregateIteratorGenerator(resultExpression, Seq(aggregatorSchema) ++ namedGroups.map(_._2)) // idk what the input should be
           val aggregate_iterator = aggregate_iterator_gen(currentAggregationTable.iterator)
+
+          // Task 7:
+          hashedSpills = Some {spills.iterator}
+
           aggregate_iterator
         }
 
@@ -237,7 +245,37 @@ case class SpillableAggregate(
         */
       private def fetchSpill(): Boolean  = {
         /* IMPLEMENT THIS METHOD */
-        false
+        // Check spills. Put the entire partition into currentAggregateTable.
+        hashedSpills match {
+          case Some(spill) => {
+            if(spill.hasNext){
+              val partition = spill.next()
+              currentAggregationTable = new SizeTrackingAppendOnlyMap[Row, AggregateFunction]
+              // fill table with partition
+              val partition_iterator = partition.getData()
+              while(partition_iterator.hasNext){
+                val currentRow = partition_iterator.next()
+                val currentGroup = groupingProjection(currentRow)
+                var currentInstance = currentAggregationTable(currentGroup)
+                if (currentInstance == null) {
+                  currentInstance = newAggregatorInstance()
+                  currentAggregationTable.update(currentGroup.copy(), currentInstance)
+                }
+                currentInstance.update(currentRow)
+              }
+
+              // Reset the hash table iterator.
+              val aggregate_iterator_gen = AggregateIteratorGenerator(resultExpression, Seq(aggregatorSchema) ++ namedGroups.map(_._2)) // idk what the input should be
+              aggregateResult = aggregate_iterator_gen(currentAggregationTable.iterator)
+
+              true
+            } else {
+              hashedSpills = None
+              false
+            }
+          }
+          case None => false
+        }
       }
     }
   }
