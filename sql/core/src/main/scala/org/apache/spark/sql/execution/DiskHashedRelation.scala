@@ -96,7 +96,7 @@ private[sql] class DiskPartition (
     if (inputClosed) {
       throw new SparkException("Error: input closed, cannot insert.")
     }
-
+    data.add(row)
     // If the size of data (in bytes) exceeds the blockSize, we need to spill to disk.
     if(measurePartitionSize() > blockSize){
       spillPartitionToDisk()
@@ -105,7 +105,6 @@ private[sql] class DiskPartition (
     else {
       writtenToDisk = false
     }
-    data.add(row)
   }
 
   /**
